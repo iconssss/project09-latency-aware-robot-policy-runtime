@@ -13,6 +13,9 @@ results/*.npz
 results/m4_raw_interrupted_*/
 project09-latency-vla-freeze-*.tar.gz
 project09-freeze-manifest.txt
+# Root-level recovery duplicates; canonical copies live in scripts/.
+/m4_aggregate.py
+/m5br_train.py
 *.tar.gz
 *.partial
 *.lock
