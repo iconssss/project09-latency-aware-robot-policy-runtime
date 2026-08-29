@@ -1,0 +1,18 @@
+# Environments, caches, logs, and non-source experiment payloads
+*.venv*
+.venv/
+.venv-mujoco/
+__pycache__/
+*.py[cod]
+logs/
+results/m5c_raw/
+artifacts/*.pt
+artifacts/*.zip
+artifacts-local/
+results/*.npz
+results/m4_raw_interrupted_*/
+project09-latency-vla-freeze-*.tar.gz
+project09-freeze-manifest.txt
+*.tar.gz
+*.partial
+*.lock

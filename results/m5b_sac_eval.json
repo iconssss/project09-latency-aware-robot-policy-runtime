@@ -1,0 +1,10 @@
+{
+  "episodes": 100,
+  "success": 1.0,
+  "mean_return": -3.7606975716022157,
+  "mean_final_distance": 0.013452831729742477,
+  "p50_final_distance": 0.01174064451302353,
+  "p95_final_distance": 0.03412364958752813,
+  "steps": 100000,
+  "wall_seconds": 1214.0263574123383
+}

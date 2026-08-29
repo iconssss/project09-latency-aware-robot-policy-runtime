@@ -1,0 +1,12 @@
+{
+  "architecture": "9-128-128-48",
+  "H": 16,
+  "k": 4,
+  "train_time_s": 19.289502188563347,
+  "best_val_loss": 0.0060586947947740555,
+  "episodes": 100,
+  "success_rate": 1.0,
+  "mean_final_error": 0.0257780241034925,
+  "mean_steps_to_success": 49.21,
+  "mean_return": -20.73832542596385
+}
