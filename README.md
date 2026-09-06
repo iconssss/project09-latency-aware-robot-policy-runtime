@@ -1,67 +1,94 @@
-# Latency-Aware Robot Policy Runtime
+# Latency-Aware Runtime for Closed-Loop Robot Policies
 
-> Freshness-aware scheduling for asynchronous closed-loop learned robot policies.
+An instrumented asynchronous policy runtime that makes **action freshness**—not
+just throughput—a first-class control metric.
 
-## Motivation
+![Latency-aware runtime overview](results/figures/runtime_architecture.svg)
 
-Neural robot policies can infer more slowly than the control loop. The central systems question is therefore not just *how long inference takes*, but what happens to observations and actions while it runs:
+## The problem
 
-`policy latency → producer/consumer mismatch → backlog → stale decisions → closed-loop degradation`
+Neural robot policies can infer more slowly than the controller produces new
+observations. A FIFO queue preserves every request and may keep the controller
+busy, but the resulting actions can describe a world state that is already more
+than a second old.
 
-This project instruments end-to-end provenance and compares three scheduling semantics:
+This project compares three execution semantics:
 
-- **SYNC**: infer on the current observation, then act. It preserves freshness but lowers real-time control throughput when inference blocks.
-- **ASYNC_FIFO**: preserve every observation/action in order. It can retain nominal controller throughput while accumulating stale work.
-- **ASYNC_LATEST**: retain only the newest pending observation and action. It bounds scheduler-induced staleness, but cannot remove intrinsic inference latency.
+- **SYNC:** infer from the current observation, then act; fresh but blocking.
+- **FIFO:** preserve all pending work; high apparent throughput but unbounded
+  backlog.
+- **LATEST:** replace pending observations/actions with the newest available
+  item; bounded backlog without cancelling in-flight inference.
 
-**Key insight: throughput is not freshness.**
+## Headline result
 
-## System
+On MuJoCo `Reacher-v5` with a fixed learned SAC policy and 100 ms injected
+inference latency:
 
-```text
-Observation Producer → Observation Buffer → Policy Worker → Action Buffer → Controller → Robot/Dynamics
-                         FIFO / LATEST                      FIFO / LATEST
-```
+| Scheduler  |  Success | Control rate | p95 action age |
+| ---------- | -------: | -----------: | -------------: |
+| SYNC       |     100% |      9.90 Hz |         102 ms |
+| FIFO       |      20% |     20.41 Hz |       1,243 ms |
+| **LATEST** | **100%** | **20.41 Hz** |     **150 ms** |
 
-Every executed policy action records observation ID/timestamp, inference start/end, action ID, and execution timestamp. Action age is decomposed as observation wait + policy latency + action wait.
+LATEST reduced p95 action age by about **88%** versus FIFO while preserving the
+same nominal 20 Hz control rate. At 400 ms, LATEST still bounded both queues but
+success fell to 55%: queue policy removes avoidable backlog, not intrinsic model
+latency.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md).
+## What I built
 
-## Key results
+- Separate observation producer, policy worker, action buffer, and controller
+  processes with explicit FIFO/LATEST replacement semantics.
+- End-to-end provenance for every executed action: source observation ID and
+  timestamp, inference interval, action ID, and execution timestamp.
+- A checked decomposition of action age into observation wait, policy latency,
+  and post-inference action wait.
+- Two evaluation settings: a controlled learned Chunk-BC benchmark and an
+  independent MuJoCo environment with a fixed learned SAC policy.
+- Deterministic aggregation, queue-depth monitoring, and tests for runtime
+  messages, buffers, policy/control workers, and formal benchmark contracts.
 
-### Controlled learned-policy benchmark (M4)
+## Why throughput is not enough
 
-M4 uses a learned Chunk-BC reaching policy on a learned reaching proxy (`H=16`, `k=4`). Zero-latency SYNC and LATEST baselines reached 100% success; FIFO retained stale chunks and failed across the formal matrix. At 100 ms, FIFO action-age p95 was 4460 ms and success was 0%; LATEST kept both queues at depth 1, action-age p95 200 ms, and success 100%.
+At 100 ms latency, FIFO and LATEST both reported about 20.4 controller ticks per
+second. FIFO nevertheless accumulated 1.11 s p95 observation wait and completed
+only 20% of episodes. LATEST kept observation and action queues at depth one and
+completed all episodes.
 
-### MuJoCo external validation (M5C)
+The controller rate alone therefore looked healthy while closed-loop decisions
+were obsolete. Action age exposed the actual systems failure.
 
-M5C uses a fixed deterministic SAC state policy on unmodified MuJoCo `Reacher-v5`; it is a **single-action** policy, not an action-chunk experiment. At 100 ms artificial policy latency:
+![MuJoCo success versus latency](results/figures/m5c_success_vs_latency.svg)
 
-| Scheduler | Success | Control rate | Obs-wait p95 | Action-age p95 | Final distance |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| SYNC | 100% | 9.90 Hz | 0 ms | 102 ms | 0.012 |
-| FIFO | 20% | 20.41 Hz | 1111 ms | 1243 ms | 0.178 |
-| LATEST | 100% | 20.41 Hz | 19 ms | 150 ms | 0.017 |
+## Controlled action-chunk evidence
 
-LATEST reduced action-age p95 by about 88% versus FIFO while retaining nominal 20 Hz control. At 400 ms, LATEST still bounded queues but fell to 55% success with 450 ms action-age p95: freshness scheduling removes avoidable backlog, not intrinsic policy latency.
+The first benchmark used a learned Chunk-BC reaching policy with horizon 16 and
+four executed actions per plan. It intentionally stresses plan ownership:
+preserving obsolete chunks in FIFO can create a backlog even when artificial
+inference latency is zero. LATEST kept both queues bounded and retained 100%
+success at 0 and 100 ms, while FIFO failed across the formal matrix.
 
-## Reproduction
-
-The recorded formal artifacts are the source of truth. Runtime dependencies were intentionally isolated in the Project09 MuJoCo environment; no rendering is required.
-
-```bash
-cd <repository-root>
-PYTHONPATH=.venv-mujoco/lib/python3.12/site-packages CUDA_VISIBLE_DEVICES=-1 \
-OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 python scripts/m5c_scheduler.py --seeds 20
-```
-
-This command is documented for reproducibility only; the completed benchmark should not be rerun without explicit controller approval.
+The second benchmark moved the same scheduling mechanism to unmodified MuJoCo
+`Reacher-v5` and a single-action SAC policy. This separated the general freshness
+effect from the chunk-specific stress test.
 
 ## Scope and limitations
 
-- The runtime is for learned robot policies, action-chunk policies, and high-latency neural/VLA-like deployment settings; it does **not** integrate a real VLA.
-- M5C is state-based MuJoCo validation, not physical-robot validation.
-- Latency is deliberately injected with wall-clock sleep.
-- ManiSkill/SAPIEN graphics and MuJoCo EGL/OSMesa rendering were unavailable in the cloud container; no RGB/vision validation claim is made.
+- This is state-based simulation; there is no physical robot or vision stack.
+- Latency is injected with wall-clock delay rather than measured from a VLA.
+- SYNC remains successful at high latency because wall-clock sleep reduces the
+  control rate without changing MuJoCo's state-transition count.
+- LATEST is not a universal dropping policy. Safety-critical commands need
+  separate ownership, validity windows, and deterministic fallback control.
 
-Detailed engineering decisions are in [docs/ENGINEERING_NOTES.md](docs/ENGINEERING_NOTES.md). Full numerical results are in [RESULTS.md](RESULTS.md); concise interview material is in [INTERVIEW_GUIDE.md](INTERVIEW_GUIDE.md).
+## Repository guide
+
+- [RESULTS.md](RESULTS.md) — full matrices and formal artifacts
+- [INTERVIEW_GUIDE.md](INTERVIEW_GUIDE.md) — concise explanation and technical Q&A
+- [Architecture](docs/ARCHITECTURE.md) — process and timestamp design
+- `runtime/` — messages, buffers, workers, runner, and benchmark logic
+- `tests/` — runtime and experiment-contract tests
+
+**Core takeaway:** a robot runtime can maintain high throughput while executing
+stale decisions. Closed-loop systems must measure and control freshness directly.

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="450" viewBox="0 0 1200 450" role="img" aria-labelledby="title desc">
+  <title id="title">Latency-aware robot policy runtime</title>
+  <desc id="desc">FIFO and latest-only scheduling have equal controller throughput at 100 milliseconds latency, but latest-only scheduling greatly reduces action age and restores success.</desc>
+  <rect width="1200" height="450" rx="24" fill="#f7f9fc"/>
+  <text x="60" y="60" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#172033">Same throughput. Very different freshness.</text>
+  <text x="60" y="96" font-family="Arial, sans-serif" font-size="18" fill="#536079">MuJoCo Reacher-v5 · fixed learned policy · 100 ms inference latency</text>
+  <g font-family="Arial, sans-serif">
+    <rect x="60" y="145" width="175" height="86" rx="16" fill="#ffffff" stroke="#4b77be" stroke-width="3"/>
+    <text x="87" y="180" font-size="18" font-weight="700" fill="#214a84">Observation</text>
+    <text x="87" y="207" font-size="15" fill="#536079">ID + timestamp</text>
+    <path d="M245 181h52" stroke="#7b879d" stroke-width="5"/><path d="M291 169l16 12-16 12z" fill="#7b879d"/>
+    <rect x="317" y="145" width="175" height="86" rx="16" fill="#ffffff" stroke="#4b77be" stroke-width="3"/>
+    <text x="350" y="180" font-size="18" font-weight="700" fill="#214a84">Policy worker</text>
+    <text x="350" y="207" font-size="15" fill="#536079">100 ms inference</text>
+    <path d="M502 181h52" stroke="#7b879d" stroke-width="5"/><path d="M548 169l16 12-16 12z" fill="#7b879d"/>
+    <rect x="574" y="145" width="175" height="86" rx="16" fill="#ffffff" stroke="#4b77be" stroke-width="3"/>
+    <text x="609" y="180" font-size="18" font-weight="700" fill="#214a84">Action buffer</text>
+    <text x="609" y="207" font-size="15" fill="#536079">FIFO or LATEST</text>
+    <path d="M759 181h52" stroke="#7b879d" stroke-width="5"/><path d="M805 169l16 12-16 12z" fill="#7b879d"/>
+    <rect x="831" y="145" width="175" height="86" rx="16" fill="#ffffff" stroke="#4b77be" stroke-width="3"/>
+    <text x="866" y="180" font-size="18" font-weight="700" fill="#214a84">Controller</text>
+    <text x="866" y="207" font-size="15" fill="#536079">~20 Hz async</text>
+    <path d="M1016 181h9" stroke="#7b879d" stroke-width="5"/><path d="M1019 169l16 12-16 12z" fill="#7b879d"/>
+    <rect x="1035" y="145" width="105" height="86" rx="16" fill="#eaf3ff" stroke="#4b77be" stroke-width="3"/>
+    <text x="1060" y="180" font-size="18" font-weight="700" fill="#214a84">Robot</text><text x="1058" y="207" font-size="15" fill="#536079">dynamics</text>
+    <rect x="60" y="286" width="510" height="105" rx="18" fill="#fff5f3" stroke="#d15b4f" stroke-width="3"/>
+    <text x="88" y="324" font-size="21" font-weight="700" fill="#a43c33">FIFO</text>
+    <text x="175" y="324" font-size="20" fill="#172033">20.41 Hz · 1,243 ms p95 age · 20% success</text>
+    <text x="88" y="360" font-size="16" fill="#536079">Preserves obsolete work and turns latency into backlog.</text>
+    <rect x="630" y="286" width="510" height="105" rx="18" fill="#effaf5" stroke="#2f8f65" stroke-width="3"/>
+    <text x="658" y="324" font-size="21" font-weight="700" fill="#236b4d">LATEST</text>
+    <text x="760" y="324" font-size="20" fill="#172033">20.41 Hz · 150 ms p95 age · 100% success</text>
+    <text x="658" y="360" font-size="16" fill="#536079">Replaces pending work and bounds both queues at depth one.</text>
+  </g>
+</svg>
